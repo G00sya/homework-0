@@ -8,8 +8,8 @@ from tqdm import tqdm, trange
 import wandb
 from typing import Tuple, Dict
 
-from hparams import config
-from prepare_data import prepare_data
+from configs.hparams import config
+from src.prepare_data import prepare_data
 
 
 def config_train_process(

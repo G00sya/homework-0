@@ -16,7 +16,7 @@ def download_data() -> None:
     return
 
 
-def prepare_data(path=str(Path(__file__).parent / "data" / "CIFAR10")) -> Tuple[Dataset, Dataset]:
+def prepare_data(path=str(Path(__file__).parent.parent / "data" / "CIFAR10")) -> Tuple[Dataset, Dataset]:
     """
     Инициализирует обучающие и тестовые данные CIFAR10 с нормализованными тензорами.
 
@@ -30,15 +30,17 @@ def prepare_data(path=str(Path(__file__).parent / "data" / "CIFAR10")) -> Tuple[
         ]
     )
     print(path)
+    train_path = path + "\\train"
     train_dataset = CIFAR10(
-        root=path + "/train",
+        root=train_path,
         train=True,
         transform=transform,
         download=False
     )
 
+    test_path = path + "\\test"
     test_dataset = CIFAR10(
-        root=path + "/test",
+        root=test_path,
         train=False,
         transform=transform,
         download=False,

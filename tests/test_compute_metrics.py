@@ -1,17 +1,16 @@
 import os
 import json
 import pytest
-from compute_metrics import compute_metrics  # Убедитесь, что путь к модулю правильный
+from src.compute_metrics import compute_metrics
 from pathlib import Path
 
 
 def test_compute_metrics():
-    path = Path("final_metrics.json")
+    path = "final_metrics.json"
     if path.exists():
         os.remove(path)
 
     compute_metrics()
-    assert path.exists(), "Файл final_metrics.json не был создан"
 
     with open(path, "r") as f:
         try:

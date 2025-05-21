@@ -14,8 +14,8 @@ from pathlib import Path
 
 from unittest.mock import Mock, patch
 
-from prepare_data import download_data, prepare_data
-import train
+from src.prepare_data import download_data, prepare_data
+from src import train
 
 
 @pytest.fixture
@@ -165,7 +165,7 @@ def generate_dummy_model():
 
 def test_save_model():
     model = generate_dummy_model()
-    path = "weights/model.pt"  # Path to save the model weights
+    path = Path(__file__).parent / "weights" / "model.pt"  # Path to save the model weights
 
     weights_dir = Path("weights")
     weights_dir.mkdir(parents=True, exist_ok=True)
@@ -207,7 +207,7 @@ def test_training(device_name, prepare_dataset):
     train_loader, test_loader, model, criterion, optimizer = train.config_train_process(
         train_dataset, test_dataset, device
     )
-    path = "weights/model.pt"  # Path to save the model weights
+    path = Path(__file__).parent / "weights" / "model.pt"  # Path to save the model weights
     train.train_model(train_dataset, test_dataset, device_name, path, "test")
 
     model.load_state_dict(torch.load(path))
