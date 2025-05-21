@@ -2,3 +2,4 @@ data/
 wandb/
 .idea/
 __pycache__/
+weights/

@@ -5,6 +5,7 @@ import torch
 import torchvision.transforms as transforms
 from torchvision.datasets import CIFAR10
 from torchvision.models import resnet18
+from pathlib import Path
 
 from hparams import config
 
@@ -15,7 +16,9 @@ def compute_metrics():
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))
     ])
 
-    test_dataset = CIFAR10(root='CIFAR10/test',
+    data_path = Path(__file__).parent / "data" / "CIFAR10"
+    test_path = data_path / 'test'
+    test_dataset = CIFAR10(root=str(test_path),
                            train=False,
                            transform=transform,
                            download=False,
@@ -24,10 +27,11 @@ def compute_metrics():
     test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
                                               batch_size=config["batch_size"])
 
-    device = torch.device("cuda")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = resnet18(pretrained=False, num_classes=10)
-    model.load_state_dict(torch.load("model.pt"))
+    model_path = Path(__file__).parent / "weights" / "model.pt"
+    model.load_state_dict(torch.load(model_path))
     model.to(device)
 
     correct = 0.0
