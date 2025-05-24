@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def test_compute_metrics():
-    path = "final_metrics.json"
+    path = Path(__file__).parent / "final_metrics.json"
     if path.exists():
         os.remove(path)
 

@@ -85,8 +85,70 @@ def test_train_one_epoch(device_name, prepare_one_epoch_train):
     optimizer.step.assert_called_once(), "optimizer.step() wasn't called"
     optimizer.zero_grad.assert_called_once(), "optimizer.zero_grad() wasn't called"
 
-    # Check the output of train function
     assert loss == criterion.return_value, "Wrong output of train function"
+
+
+@pytest.mark.parametrize(["device_name"], [["invalid_device"]])
+def test_train_one_epoch_device_error(device_name, prepare_one_epoch_train):
+    with pytest.raises(Exception):
+        device = torch.device(device_name)
+        images, labels, model, criterion, optimizer = prepare_one_epoch_train
+        train.train_one_epoch(images, labels, model, criterion, optimizer, device)
+
+
+def test_train_one_epoch_zero_grad_called_before_step(prepare_one_epoch_train):
+    images, labels, model, criterion, optimizer = prepare_one_epoch_train
+
+    optimizer.step = Mock()
+    optimizer.zero_grad = Mock()
+
+    device = torch.device("cpu")
+
+    train.train_one_epoch(images, labels, model, criterion, optimizer, device)
+
+    call_order = [call[0] for call in optimizer.mock_calls]
+
+    assert call_order.index('zero_grad') < call_order.index('step'), "zero_grad was not called before step"
+
+
+def test_train_one_epoch_input_types(prepare_one_epoch_train):
+    images, labels, model, criterion, optimizer = prepare_one_epoch_train
+    device = torch.device("cpu")
+
+    # Try with a list instead of a tensor
+    with pytest.raises(TypeError):
+        train.train_one_epoch([1, 2, 3], labels, model, criterion, optimizer, device)  # Pass incorrect type for images
+
+    with pytest.raises(TypeError):
+        train.train_one_epoch(images, [1, 2, 3], model, criterion, optimizer, device)  # Pass incorrect type for labels
+
+
+def test_train_one_epoch_no_parameters(prepare_one_epoch_train):
+    images, labels, model, criterion, optimizer = prepare_one_epoch_train
+
+    # Create a model with no parameters
+    model.parameters = Mock(return_value=[])
+    optimizer = optim.SGD(model.parameters(), lr=0.01)
+
+    device = torch.device("cpu")
+    loss = train.train_one_epoch(images, labels, model, criterion, optimizer, device)
+
+    # Check that optimizer.step() was not called (because there are no parameters to update)
+    optimizer.step.assert_not_called()
+    assert loss == criterion.return_value, "Wrong output of train function"
+
+
+def test_train_one_epoch_none_criterion_optimizer(prepare_one_epoch_train):
+    images, labels, model, criterion, optimizer = prepare_one_epoch_train
+    device = torch.device("cpu")
+
+    # Try with None criterion
+    with pytest.raises(TypeError):
+        train.train_one_epoch(images, labels, model, None, optimizer, device)
+
+    # Try with None optimizer
+    with pytest.raises(TypeError):
+        train.train_one_epoch(images, labels, model, criterion, None, device)
 
 
 def test_compute_accuracy():
@@ -99,6 +161,38 @@ def test_compute_accuracy():
     targets = torch.tensor([1, 2, 3, 4, 5, 6])
 
     assert train.compute_accuracy(preds, targets) == 0.5
+
+
+def compute_accuracy(preds, targets):
+    """Computes accuracy for given predictions and targets."""
+    if len(preds) == 0:
+        return torch.tensor(float('nan'))  # Возвращаем NaN, если тензоры пустые
+
+    correct = (preds == targets).sum().item()
+    total = len(targets)
+    return correct / total
+
+
+def test_compute_accuracy_empty_tensors():
+    preds = torch.tensor([])
+    targets = torch.tensor([])
+    assert torch.isnan(train.compute_accuracy(preds, targets))
+
+
+def test_compute_accuracy_different_data_types():
+    preds = torch.tensor([1, 2, 3], dtype=torch.int64)
+    targets = torch.tensor([1, 2, 3], dtype=torch.float32)
+
+    with pytest.raises(RuntimeError):
+        train.compute_accuracy(preds, targets)
+
+
+def test_compute_accuracy_different_sizes():
+    preds = torch.tensor([1, 2, 3])
+    targets = torch.tensor([1, 2, 3, 4])
+
+    with pytest.raises(RuntimeError):
+        train.compute_accuracy(preds, targets)
 
 
 @pytest.mark.parametrize(
@@ -144,6 +238,56 @@ def test_estimate_current_state_validity(device_name, prepare_dataset):
         metrics["train_loss"], torch.Tensor
     ), "train_loss is not a torch.Tensor"
     assert metrics["train_loss"] == loss, "Loss was changed inside the function"
+
+
+def test_estimate_current_state_empty_test_loader(device_name, prepare_dataset):
+    # Prepare estimation
+    device = torch.device(
+        device_name if torch.cuda.is_available() and device_name == "cuda" else "cpu"
+    )
+    loss = torch.tensor(0.5)
+
+    train_dataset, test_dataset = prepare_dataset
+    train_loader, test_loader, model, criterion, optimizer = train.config_train_process(
+        train_dataset, test_dataset, device
+    )
+
+    # Mock the test_loader to return an empty iterator
+    test_loader = []
+
+    # Estimate
+    metrics = train.estimate_current_state(test_loader, device, model, loss)
+
+    # Check validity
+    assert "test_acc" in metrics, "test_acc is not in metrics"
+    assert "train_loss" in metrics, "train_loss is not in metrics"
+    assert isinstance(
+        metrics["test_acc"], torch.Tensor
+    ), "test_acc is not a torch.Tensor"
+    assert isinstance(
+        metrics["train_loss"], torch.Tensor
+    ), "train_loss is not a torch.Tensor"
+    assert metrics["train_loss"] == loss, "Loss was changed inside the function"
+    assert torch.isnan(metrics["test_acc"])
+
+
+@pytest.mark.parametrize(["device_name"], [["cuda"]])
+def test_estimate_current_state_no_cuda(device_name, prepare_dataset):
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA не доступна, пропускаем тест.")
+
+    device = torch.device(
+        device_name if torch.cuda.is_available() and device_name == "cuda" else "cpu"
+    )
+    loss = torch.tensor(0.5)
+
+    train_dataset, test_dataset = prepare_dataset
+    train_loader, test_loader, model, criterion, optimizer = train.config_train_process(
+        train_dataset, test_dataset, device
+    )
+    with patch("torch.cuda.is_available", return_value=False):
+        with pytest.raises(RuntimeError):
+            train.estimate_current_state(test_loader, device, model, loss)
 
 
 class MockModel(nn.Module):
