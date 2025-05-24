@@ -5,21 +5,26 @@ from src.compute_metrics import compute_metrics
 from pathlib import Path
 
 
-def test_compute_metrics():
+@pytest.fixture
+def clean_metrics_file():
     path = Path(__file__).parent / "final_metrics.json"
     if path.exists():
-        os.remove(path)
+        path.unlink()
+    yield
+    if path.exists():
+        path.unlink()
 
+
+def test_compute_metrics(clean_metrics_file):
     compute_metrics()
 
+    path = Path(__file__).parent / "final_metrics.json"
     with open(path, "r") as f:
         try:
             metrics = json.load(f)
         except json.JSONDecodeError:
             pytest.fail("Файл final_metrics.json содержит невалидный JSON")
 
-    assert "accuracy" in metrics, "В файле final_metrics.json отсутствует ключ 'accuracy'"
-    assert isinstance(metrics["accuracy"], (int, float)), "Значение accuracy должно быть числом (int или float)"
-
-    accuracy = metrics["accuracy"]
-    assert 0 <= accuracy <= 1, f"Значение accuracy ({accuracy}) должно быть в диапазоне от 0 до 1"
+    assert "accuracy" in metrics
+    assert isinstance(metrics["accuracy"], (int, float))
+    assert 0 <= metrics["accuracy"] <= 1

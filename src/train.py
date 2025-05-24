@@ -114,6 +114,11 @@ def train_one_epoch(
     :param device: Device: "cpu", "cuda".
     :return: Loss tensor.
     """
+    if criterion is None:
+        raise AttributeError("Criterion cannot be None - cannot compute loss")
+    if optimizer is None:
+        raise AttributeError("Optimizer cannot be None - cannot update weights")
+
     images = images.to(device)
     labels = labels.to(device)
 
